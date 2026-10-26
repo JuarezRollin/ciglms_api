@@ -1,0 +1,1128 @@
+{
+  "info": {
+    "_postman_id": "78ca61b1-d66c-4306-a8e9-ff981220c32a",
+    "name": "DSWD PDF Signing API Consumer Guide Staging",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "For API users integrating with https://pdf-signer-staging.dswd.gov.ph. Import this collection and the companion environment, then select that environment. projectFolder starts blank: the first request generates and saves a unique idms-staging UUID value. Generate it ONCE and reuse it for all requests from the same integration. Never reuse another team's existing folder; keep staging and production separate. X-Project-Key must match projectFolder. Set userId and password locally, and select files in each form-data body. No real credentials or internal file paths are included. Signing returns a PDF; save the response only after checking HTTP 200. Requests are meant to be sent individually, not as an unattended collection run. Removal is kept in a separate folder and disabled until confirmRemoval is true. No service-token setup is included in this consumer collection."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://pdf-signer-staging.dswd.gov.ph",
+      "type": "string"
+    },
+    {
+      "key": "projectFolder",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "user-1",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pageIndex",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "x",
+      "value": "120",
+      "type": "string"
+    },
+    {
+      "key": "y",
+      "value": "80",
+      "type": "string"
+    },
+    {
+      "key": "width",
+      "value": "210",
+      "type": "string"
+    },
+    {
+      "key": "height",
+      "value": "90",
+      "type": "string"
+    },
+    {
+      "key": "signerName",
+      "value": "Sample Signer",
+      "type": "string"
+    },
+    {
+      "key": "signerLocation",
+      "value": "Philippines",
+      "type": "string"
+    },
+    {
+      "key": "signReason",
+      "value": "Approved",
+      "type": "string"
+    },
+    {
+      "key": "confirmRemoval",
+      "value": "false",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "let folder = pm.variables.get('projectFolder');",
+          "if (!folder || !String(folder).trim()) {",
+          "  folder = 'idms-staging-' + pm.variables.replaceIn('{{$guid}}');",
+          "  if (pm.environment.name) { pm.environment.set('projectFolder', folder); }",
+          "  else { pm.collectionVariables.set('projectFolder', folder); }",
+          "}",
+          "pm.variables.set('projectFolder', folder);",
+          "if (!/^[a-zA-Z0-9_-]+$/.test(folder)) {",
+          "  throw new Error('Use letters, numbers, hyphens, or underscores for projectFolder. Keep this value unchanged after your first upload.');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Main workflow",
+      "item": [
+        {
+          "name": "01 Check service availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Send this first to check that the staging API responds.",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request succeeded', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "02 Save certificate and signature image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Choose your own PNPKI .p12 file and signature image in Body > form-data. The image is optional for digital signing but required for saved-image signing. Uploading again replaces the active profile for this project and user.",
+            "url": {
+              "raw": "{{baseUrl}}/certificates/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                },
+                {
+                  "key": "p12File",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose a valid PNPKI certificate."
+                },
+                {
+                  "key": "signatureImageFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose the image to save with the profile."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request succeeded', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "03 View saved certificate details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Read the active certificate information for your project and user. No certificate password is sent.",
+            "url": {
+              "raw": "{{baseUrl}}/certificates/info?projectFolder={{projectFolder}}&userId={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates",
+                "info"
+              ],
+              "query": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request succeeded', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "04 Check certificate revocation status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "description": "Check GOOD, REVOKED, or UNKNOWN in revocationStatus. UNKNOWN is not confirmation that a certificate is valid.",
+            "url": {
+              "raw": "{{baseUrl}}/certificates/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request succeeded', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "05 Digitally sign with saved certificate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Choose pdfFile, then send. Save the successful PDF response to a file. The saved image is used when available. Coordinates are PDF points; pageIndex 0 is the first page.",
+            "url": {
+              "raw": "{{baseUrl}}/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sign"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signatureMode",
+                  "value": "digital",
+                  "type": "text"
+                },
+                {
+                  "key": "pdfFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose the PDF to sign."
+                },
+                {
+                  "key": "pageIndex",
+                  "value": "{{pageIndex}}",
+                  "type": "text"
+                },
+                {
+                  "key": "x",
+                  "value": "{{x}}",
+                  "type": "text"
+                },
+                {
+                  "key": "y",
+                  "value": "{{y}}",
+                  "type": "text"
+                },
+                {
+                  "key": "width",
+                  "value": "{{width}}",
+                  "type": "text"
+                },
+                {
+                  "key": "height",
+                  "value": "{{height}}",
+                  "type": "text"
+                },
+                {
+                  "key": "fieldName",
+                  "value": "Signature1",
+                  "type": "text"
+                },
+                {
+                  "key": "signerName",
+                  "value": "{{signerName}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signerLocation",
+                  "value": "{{signerLocation}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signReason",
+                  "value": "{{signReason}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PDF returned successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});",
+                  "pm.test('Signing mode returned', function () {",
+                  "  pm.expect(pm.response.headers.get('X-Signature-Mode')).to.be.oneOf(['digital', 'electronic']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "06 Add saved signature image only",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Uses the image saved in request 02. No certificate password is needed. Choose an unsigned PDF and save the returned PDF. This adds an image, not a certificate-based digital signature.",
+            "url": {
+              "raw": "{{baseUrl}}/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sign"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signatureMode",
+                  "value": "electronic",
+                  "type": "text"
+                },
+                {
+                  "key": "pdfFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose a PDF without existing digital signatures."
+                },
+                {
+                  "key": "pageIndex",
+                  "value": "{{pageIndex}}",
+                  "type": "text"
+                },
+                {
+                  "key": "x",
+                  "value": "{{x}}",
+                  "type": "text"
+                },
+                {
+                  "key": "y",
+                  "value": "{{y}}",
+                  "type": "text"
+                },
+                {
+                  "key": "width",
+                  "value": "{{width}}",
+                  "type": "text"
+                },
+                {
+                  "key": "height",
+                  "value": "{{height}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PDF returned successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});",
+                  "pm.test('Signing mode returned', function () {",
+                  "  pm.expect(pm.response.headers.get('X-Signature-Mode')).to.be.oneOf(['digital', 'electronic']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Optional signing examples",
+      "item": [
+        {
+          "name": "Digitally sign with an uploaded certificate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Choose p12File and pdfFile. This one-time request does not save the certificate. Do not add userId because that would select another signing source.",
+            "url": {
+              "raw": "{{baseUrl}}/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sign"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signatureMode",
+                  "value": "digital",
+                  "type": "text"
+                },
+                {
+                  "key": "p12File",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose your PNPKI .p12 file."
+                },
+                {
+                  "key": "pdfFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose the PDF."
+                },
+                {
+                  "key": "pageIndex",
+                  "value": "{{pageIndex}}",
+                  "type": "text"
+                },
+                {
+                  "key": "x",
+                  "value": "{{x}}",
+                  "type": "text"
+                },
+                {
+                  "key": "y",
+                  "value": "{{y}}",
+                  "type": "text"
+                },
+                {
+                  "key": "width",
+                  "value": "{{width}}",
+                  "type": "text"
+                },
+                {
+                  "key": "height",
+                  "value": "{{height}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signatureImageFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional image override; disable if unused."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PDF returned successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});",
+                  "pm.test('Signing mode returned', function () {",
+                  "  pm.expect(pm.response.headers.get('X-Signature-Mode')).to.be.oneOf(['digital', 'electronic']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Repeat signature appearance on another page",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Digitally signs once and repeats its appearance on the second page. Choose a PDF with at least two pages. Repeated appearances do not represent multiple signers.",
+            "url": {
+              "raw": "{{baseUrl}}/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sign"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signatureMode",
+                  "value": "digital",
+                  "type": "text"
+                },
+                {
+                  "key": "pdfFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose the PDF to sign."
+                },
+                {
+                  "key": "pageIndex",
+                  "value": "{{pageIndex}}",
+                  "type": "text"
+                },
+                {
+                  "key": "x",
+                  "value": "{{x}}",
+                  "type": "text"
+                },
+                {
+                  "key": "y",
+                  "value": "{{y}}",
+                  "type": "text"
+                },
+                {
+                  "key": "width",
+                  "value": "{{width}}",
+                  "type": "text"
+                },
+                {
+                  "key": "height",
+                  "value": "{{height}}",
+                  "type": "text"
+                },
+                {
+                  "key": "fieldName",
+                  "value": "Signature1",
+                  "type": "text"
+                },
+                {
+                  "key": "signerName",
+                  "value": "{{signerName}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signerLocation",
+                  "value": "{{signerLocation}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signReason",
+                  "value": "{{signReason}}",
+                  "type": "text"
+                },
+                {
+                  "key": "additionalSignaturePlacements",
+                  "value": "1,120,80,210,90",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PDF returned successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});",
+                  "pm.test('Signing mode returned', function () {",
+                  "  pm.expect(pm.response.headers.get('X-Signature-Mode')).to.be.oneOf(['digital', 'electronic']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "First signer with reserved fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Choose the original PDF. Reserve both fields before the first signature. Save the response as step1.pdf. Set userId and password for the first signer.",
+            "url": {
+              "raw": "{{baseUrl}}/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sign"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signatureMode",
+                  "value": "digital",
+                  "type": "text"
+                },
+                {
+                  "key": "pdfFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose the PDF to sign."
+                },
+                {
+                  "key": "pageIndex",
+                  "value": "{{pageIndex}}",
+                  "type": "text"
+                },
+                {
+                  "key": "x",
+                  "value": "{{x}}",
+                  "type": "text"
+                },
+                {
+                  "key": "y",
+                  "value": "{{y}}",
+                  "type": "text"
+                },
+                {
+                  "key": "width",
+                  "value": "{{width}}",
+                  "type": "text"
+                },
+                {
+                  "key": "height",
+                  "value": "{{height}}",
+                  "type": "text"
+                },
+                {
+                  "key": "fieldName",
+                  "value": "Signature1",
+                  "type": "text"
+                },
+                {
+                  "key": "signerName",
+                  "value": "{{signerName}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signerLocation",
+                  "value": "{{signerLocation}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signReason",
+                  "value": "{{signReason}}",
+                  "type": "text"
+                },
+                {
+                  "key": "reservedSignatureFields",
+                  "value": "Signature1,0,120,80,210,90\nSignature2,0,120,180,210,90",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PDF returned successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});",
+                  "pm.test('Signing mode returned', function () {",
+                  "  pm.expect(pm.response.headers.get('X-Signature-Mode')).to.be.oneOf(['digital', 'electronic']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Second signer using the previous result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              }
+            ],
+            "description": "Set userId and password for the second signer, whose certificate must already be uploaded to the same project. Choose step1.pdf from the previous request as pdfFile and save the response as step2.pdf. The file is not transferred automatically.",
+            "url": {
+              "raw": "{{baseUrl}}/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sign"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}",
+                  "type": "text"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                },
+                {
+                  "key": "signatureMode",
+                  "value": "digital",
+                  "type": "text"
+                },
+                {
+                  "key": "pdfFile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose step1.pdf, not the original PDF."
+                },
+                {
+                  "key": "pageIndex",
+                  "value": "0",
+                  "type": "text"
+                },
+                {
+                  "key": "x",
+                  "value": "120",
+                  "type": "text"
+                },
+                {
+                  "key": "y",
+                  "value": "180",
+                  "type": "text"
+                },
+                {
+                  "key": "width",
+                  "value": "210",
+                  "type": "text"
+                },
+                {
+                  "key": "height",
+                  "value": "90",
+                  "type": "text"
+                },
+                {
+                  "key": "fieldName",
+                  "value": "Signature2",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PDF returned successfully', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});",
+                  "pm.test('Signing mode returned', function () {",
+                  "  pm.expect(pm.response.headers.get('X-Signature-Mode')).to.be.oneOf(['digital', 'electronic']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Certificate removal send manually",
+      "item": [
+        {
+          "name": "Remove active saved certificate",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Project-Key",
+                "value": "{{projectFolder}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "description": "Use only when you intend to remove the active profile. It is archived into history. Set confirmRemoval=true locally to allow this request, and reset it afterwards.",
+            "url": {
+              "raw": "{{baseUrl}}/certificates/remove?projectFolder={{projectFolder}}&userId={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates",
+                "remove"
+              ],
+              "query": [
+                {
+                  "key": "projectFolder",
+                  "value": "{{projectFolder}}"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}"
+                }
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('password')) {",
+                  "  throw new Error('Set password locally in your selected Postman environment before sending this request. Do not export real credentials.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request succeeded', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); });"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('confirmRemoval')) !== 'true') {",
+                  "  throw new Error('Removal is disabled. Set confirmRemoval=true locally only when you intend to remove this active certificate.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}
